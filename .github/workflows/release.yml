@@ -141,6 +141,8 @@ jobs:
         run: rustc -C target-cpu=native --print cfg
 
       - name: Run cargo build (standard)
+        env:
+          CARGO_BUILD_JOBS: 2  # 将并行编译任务数限制为2，防止OOM
         if: contains(matrix.file_name, '-simd') == false && contains(matrix.arch, 'linux-musl') == false
         run: cargo build ${{ matrix.features }} --profile release-prod --target ${{ matrix.arch }}
 
