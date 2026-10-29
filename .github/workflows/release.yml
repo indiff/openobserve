@@ -144,10 +144,27 @@ jobs:
       - name: Create swap space
         if: contains(matrix.arch, 'linux-gnu')
         run: |
+          # 1. 如果 swapfile 已激活，先关闭它
+          if swapon --show | grep -q '/swapfile'; then
+            echo "Disabling existing swapfile..."
+            sudo swapoff /swapfile || true
+          fi
+          
+          # 2. 如果旧文件存在但未被激活，删除它（避免 fallocate 冲突）
+          if [ -f /swapfile ]; then
+            echo "Removing stale swapfile..."
+            sudo rm -f /swapfile
+          fi
+          
+          # 3. 重新创建并启用
           sudo fallocate -l 8G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
+          
+          # 4. 验证
+          free -h
+          swapon --show
 
       - name: Run cargo build (standard)
         env:
