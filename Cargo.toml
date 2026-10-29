@@ -76,8 +76,9 @@ incremental = false
 
 [profile.release-prod]
 inherits = "release"
-codegen-units = 1
+# codegen-units = 1
 lto = "thin"
+opt-level = 2 
 
 [profile.release-profiling]
 inherits = "release"
