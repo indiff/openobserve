@@ -140,11 +140,34 @@ jobs:
       - name: Print rustc cfg
         run: rustc -C target-cpu=native --print cfg
 
+      - name: Create swap space
+        if: contains(matrix.arch, 'linux-gnu')
+        run: |
+          sudo fallocate -l 8G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+
       - name: Run cargo build (standard)
         env:
-          CARGO_BUILD_JOBS: 2  # 将并行编译任务数限制为2，防止OOM
+          CARGO_BUILD_JOBS: 1  # 将并行编译任务数限制为2，防止OOM
+          # 限制链接时的并行度，大幅降低内存峰值
+          CARGO_PROFILE_RELEASE_PROD_LINKER_THREADS: 1
+          # 如果使用的是 mold/lld，也可以加上对应的内存限制参数
+          RUSTFLAGS: "-C linker-args=-Wl,--no-threads"
+          # 5. 关闭增量编译的中间产物缓存，减少内存驻留
+          CARGO_INCREMENTAL: 0
         if: contains(matrix.file_name, '-simd') == false && contains(matrix.arch, 'linux-musl') == false
-        run: cargo build ${{ matrix.features }} --profile release-prod --target ${{ matrix.arch }}
+        run: |
+          while true; do
+            free -m | awk 'NR==2{printf "Mem: %s/%sMB (%.1f%%)\n", $3,$2,$3*100/$2}'
+            sleep 30
+          done &
+          MONITOR_PID=$!
+          
+          cargo build ${{ matrix.features }} --profile release-prod --target ${{ matrix.arch }} || BUILD_EXIT=$?
+          kill $MONITOR_PID 2>/dev/null
+          exit ${BUILD_EXIT:-0}
 
       - name: Run cargo build (musl)
         if: contains(matrix.arch, 'linux-musl')
