@@ -173,7 +173,7 @@ jobs:
           CARGO_PROFILE_RELEASE_PROD_LINKER_THREADS: 1
           # 如果使用的是 mold/lld，也可以加上对应的内存限制参数
           # RUSTFLAGS: "-C linker-args=-Wl,--no-threads"
-          RUSTFLAGS: "-C link-args=-Wl,--no-threads"
+          # RUSTFLAGS: "-C link-args=-Wl,--no-threads"
           # 5. 关闭增量编译的中间产物缓存，减少内存驻留
           CARGO_INCREMENTAL: 0
         if: contains(matrix.file_name, '-simd') == false && contains(matrix.arch, 'linux-musl') == false
