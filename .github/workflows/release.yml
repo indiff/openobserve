@@ -258,13 +258,17 @@ jobs:
           if [ -z "$VERSION" ] || [ "$VERSION" = "main" ] || [ "$VERSION" = "master" ]; then
             VERSION="$(git describe --tags --abbrev=0 2>/dev/null || true)"
           fi
-          if [ -z "$VERSION" ]; then
-            echo "无法确定版本号" >&2
-            exit 1
-          fi
+          
           # 中国时区日期
           CN_DATE="$(TZ='Asia/Shanghai' date +%Y%m%d)"
-          TAG="${VERSION}-${CN_DATE}"
+          if [ -z "$VERSION" ]; then
+            echo "无法确定版本号" >&2
+            VERSION="${CN_DATE}"
+            TAG="${CN_DATE}"
+          else
+            TAG="${VERSION}-${CN_DATE}"
+          fi
+          
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "cn_date=$CN_DATE" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG"       >> "$GITHUB_OUTPUT"
