@@ -292,6 +292,8 @@ jobs:
       #     role-to-assume: arn:aws:iam::325553860333:role/github-actions-s3-uploader
       #     role-session-name: GithubActionsSession
       #     aws-region: us-east-2
+          files: openapi.json
+          fail_on_unmatched_files: false
 
       # - name: Upload to S3
       #   env:
