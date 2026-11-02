@@ -186,7 +186,7 @@ jobs:
           done &
           MONITOR_PID=$!
           
-          cargo build ${{ matrix.features }} --profile release-prod --target ${{ matrix.arch }} || BUILD_EXIT=$?
+          cargo build ${{ matrix.features }} --profile release-ci --target ${{ matrix.arch }} || BUILD_EXIT=$?
           kill $MONITOR_PID 2>/dev/null
           exit ${BUILD_EXIT:-0}
 
