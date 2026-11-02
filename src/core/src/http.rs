@@ -99,10 +99,9 @@ impl From<AlertError> for Response {
             | AlertError::TzOffsetOutOfRange
             | AlertError::CronHasNoFutureOccurrence { .. }
             | AlertError::RecoveryOnRealtimeAlert
+            | AlertError::RepeatSuppressionOnRealtimeAlert
             | AlertError::RecoveryDestinationsWithoutRecovery
             | AlertError::RecoveryDestinationIsPlatform { .. }
-            | AlertError::RecoveryOnMultiAlert
-            | AlertError::RecoveryWithNotificationGrouping
             | AlertError::RecoveryNeedsJsonPayload { .. }
             | AlertError::RecoveryNeedsRoutingKey { .. }
             | AlertError::MultiAlertGroupingError(_)

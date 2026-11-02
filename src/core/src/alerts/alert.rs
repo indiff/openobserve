@@ -327,6 +327,8 @@ pub enum AlertError {
     CronHasNoFutureOccurrence { cron: String },
     #[error("Realtime alerts cannot notify on recovery or keep firing")]
     RecoveryOnRealtimeAlert,
+    #[error("Realtime alerts cannot suppress repeat notifications")]
+    RepeatSuppressionOnRealtimeAlert,
     #[error("recovery destinations were set without notify_on_recovery, so nothing would use them")]
     RecoveryDestinationsWithoutRecovery,
     #[error(
@@ -336,14 +338,6 @@ pub enum AlertError {
         destination: String,
         platform: String,
     },
-    #[error(
-        "Multi-alerts keep per-group state and open no recovery episode, so notify_on_recovery would never fire"
-    )]
-    RecoveryOnMultiAlert,
-    #[error(
-        "notification grouping batches several alerts into one message, which cannot carry this alert's correlation key — turn off one of grouping or notify_on_recovery"
-    )]
-    RecoveryWithNotificationGrouping,
     #[error(
         "destination '{destination}' is {platform}, which is resolved by updating the alert the firing opened. That needs the firing payload to be a JSON object, and template '{template}' does not render one"
     )]
@@ -461,22 +455,7 @@ fn validate_multi_alert_config(alert: &Alert) -> Result<(), AlertError> {
         &alert.trigger_condition,
         alert.creates_incident,
     )
-    .map_err(AlertError::InvalidMultiAlert)?;
-
-    // Checked here, not in `validate_multi_alert`, because the grouping
-    // config is a sibling of the query condition rather than part of it.
-    // Same shape as MN-11's incidents rule.
-    let notification_grouping = alert
-        .deduplication
-        .as_ref()
-        .and_then(|d| d.grouping.as_ref())
-        .is_some_and(|g| g.enabled);
-    if alert.query_condition.multi_alert_enabled() && notification_grouping {
-        return Err(AlertError::InvalidMultiAlert(
-            config::meta::alerts::grouping::MultiAlertError::NotificationGroupingUnsupported,
-        ));
-    }
-    Ok(())
+    .map_err(AlertError::InvalidMultiAlert)
 }
 
 /// Refuses, at save time, a custom-aggregation `group_by` entry that is not a column of the stream.
@@ -536,20 +515,6 @@ async fn validate_recovery_templates(org_id: &str, alert: &Alert) -> Result<(), 
                 platform: format!("{platform:?}"),
             });
         }
-    }
-
-    // Both keep the alert out of the single-row path that owns the episode, so recovery would be
-    // stored and then silently never sent.
-    if alert.query_condition.multi_alert_enabled() {
-        return Err(AlertError::RecoveryOnMultiAlert);
-    }
-    if alert
-        .deduplication
-        .as_ref()
-        .and_then(|d| d.grouping.as_ref())
-        .is_some_and(|g| g.enabled)
-    {
-        return Err(AlertError::RecoveryWithNotificationGrouping);
     }
 
     let alert_template = match alert.template.as_ref().filter(|n| !n.is_empty()) {
@@ -625,9 +590,17 @@ async fn clean_up_opted_out_groups(alert: &Alert) {
     let firing = infra::table::alert_states::firing_groups(&alert_id, None)
         .await
         .unwrap_or_default();
+    let groups = infra::table::alert_states::list_groups(&alert_id)
+        .await
+        .unwrap_or_default();
     match db::alerts::alert_states::delete_all_groups(&alert_id).await {
         Ok(0) => {}
         Ok(n) => {
+            crate::alerts::recovery::log_orphaned_episodes(
+                &alert_id,
+                &groups,
+                "deleted on opt-out",
+            );
             log::info!(
                 "alert {alert_id}: per-group alerting turned off, dropped {n} group state row(s) \
                  without transitions"
@@ -923,6 +896,10 @@ async fn prepare_alert(
     // that cannot arrive.
     if alert.is_real_time && (alert.notify_on_recovery || alert.keep_firing_for != 0) {
         return Err(AlertError::RecoveryOnRealtimeAlert);
+    }
+    // A realtime alert keeps no state row, so it has no last delivered state to compare against.
+    if alert.is_real_time && alert.suppress_repeats {
+        return Err(AlertError::RepeatSuppressionOnRealtimeAlert);
     }
 
     // Multi-level thresholds (alerts_2.md Feature 1). Rejected at write time so
@@ -1638,6 +1615,14 @@ pub(crate) async fn delete_by_id<C: ConnectionTrait>(
         Ok(_) => {
             remove_ownership(org_id, "alerts", Authz::new(&alert_id_str)).await;
             let firing = crate::alerts::lifecycle::firing_rows(&alert_id_str).await;
+            let groups = infra::table::alert_states::list_groups(&alert_id_str)
+                .await
+                .unwrap_or_default();
+            crate::alerts::recovery::log_orphaned_episodes(
+                &alert_id_str,
+                &groups,
+                "deleted with its alert",
+            );
             // Alert run state is owned by the alert's lifecycle (Part IV of
             // alerts.md), so it goes when the alert does. Best-effort: a
             // leftover state row must not fail the delete.
@@ -3070,12 +3055,13 @@ pub async fn send_recovery_notification(
         Some(event.opened_at),
         event.recovered_at,
         Some(config::meta::alerts::level::AlertLevel::Ok),
-        None,
-        None,
+        event.value,
+        event.group_label_set.as_ref(),
         Some(event.episode_id.clone()),
         true,
     )
     .await;
+    ctx.recovery_reason = event.reason.as_str().to_string();
 
     let alert_template = match alert.template.as_ref().filter(|n| !n.is_empty()) {
         Some(name) => db::alerts::templates::get(&alert.org_id, name).await.ok(),
@@ -4330,6 +4316,17 @@ async fn build_notification_context(
             // link must not cost a notification either way.
             None => String::new(),
         }
+    } else if alert.stream_type == StreamType::Traces {
+        // The traces page takes a filter expression in `query`, not SQL, so the query is left out.
+        format!(
+            "{}{}/web/traces?stream={}&from={}&to={}&org_identifier={}&tab=spans",
+            cfg.common.web_url,
+            cfg.common.base_uri,
+            alert.stream_name,
+            alert_start_time,
+            alert_end_time,
+            alert.org_id
+        )
     } else {
         match alert.query_condition.query_type {
             QueryType::SQL => {
@@ -4415,6 +4412,7 @@ async fn build_notification_context(
         }
         .to_string(),
         episode_id,
+        recovery_reason: String::new(),
         alert_priority: alert.priority.map(|p| p.to_string()).unwrap_or_default(),
         alert_tags: alert.tags.join(","),
         alert_threshold_crit: if alert.query_condition.promql_rule_mode {
@@ -4942,37 +4940,14 @@ mod threshold_validation_tests {
         assert!(validate_rules(&alert).is_ok());
     }
 
-    /// §5.5: alert-level notification grouping would collapse per-group pages
-    /// back into one batch — rejected at save time, never silently rerouted.
     #[test]
-    fn test_multi_alert_rejects_notification_grouping() {
-        let mut alert = multi_alert_fixture();
-        alert.deduplication = Some(config::meta::alerts::deduplication::DeduplicationConfig {
-            enabled: true,
-            grouping: Some(config::meta::alerts::deduplication::GroupingConfig {
-                enabled: true,
-                ..serde_json::from_str("{}").expect("GroupingConfig defaults")
-            }),
-            ..Default::default()
+    fn test_multi_alert_with_a_stored_grouping_object_loads_and_validates() {
+        let mut stored = serde_json::to_value(multi_alert_fixture()).unwrap();
+        stored["deduplication"] = json!({
+            "enabled": true,
+            "grouping": {"enabled": true, "max_group_size": 10, "group_wait_seconds": 30}
         });
-
-        let err = validate_rules(&alert).unwrap_err();
-        assert!(matches!(
-            err,
-            AlertError::InvalidMultiAlert(
-                config::meta::alerts::grouping::MultiAlertError::NotificationGroupingUnsupported
-            )
-        ));
-
-        // Grouping configured but DISABLED must stay valid.
-        alert
-            .deduplication
-            .as_mut()
-            .unwrap()
-            .grouping
-            .as_mut()
-            .unwrap()
-            .enabled = false;
+        let alert: Alert = serde_json::from_value(stored).expect("legacy grouping must still load");
         assert!(validate_rules(&alert).is_ok());
     }
 
@@ -5463,6 +5438,15 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[tokio::test]
+    async fn a_multi_alert_with_recovery_saves() {
+        let mut alert = Alert::default();
+        alert.notify_on_recovery = true;
+        alert.query_condition.query_type = QueryType::PromQL;
+        alert.query_condition.promql_multi_alert = true;
+        assert!(validate_recovery_templates("default", &alert).await.is_ok());
+    }
 
     #[test]
     fn email_body_is_html_only_without_text() {
@@ -8887,6 +8871,33 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn prepare_alert_refuses_repeat_suppression_on_a_realtime_alert() {
+        use infra::schema::{STREAM_SCHEMAS_LATEST, SchemaCache};
+
+        let org_id = "test_org_alert_save_repeat_realtime";
+        let key = format!("{org_id}/{}/app", StreamType::Logs);
+        STREAM_SCHEMAS_LATEST.write().await.insert(
+            key.clone(),
+            SchemaCache::new(arrow_schema::Schema::new(vec![arrow_schema::Field::new(
+                "id",
+                DataType::Utf8,
+                true,
+            )])),
+        );
+        let mut alert = Alert::default();
+        alert.trigger_condition.frequency = 60;
+        alert.is_real_time = true;
+        alert.suppress_repeats = true;
+        let res = prepare_alert(org_id, "app", "realtime", &mut alert, true, false).await;
+        STREAM_SCHEMAS_LATEST.write().await.remove(&key);
+
+        assert!(
+            matches!(res, Err(AlertError::RepeatSuppressionOnRealtimeAlert)),
+            "{res:?}"
+        );
+    }
+
+    #[tokio::test]
     async fn prepare_alert_rejects_a_cron_with_no_future_occurrence() {
         let err = prepare_schedule(|a| {
             a.trigger_condition.frequency_type = FrequencyType::Cron;
@@ -9490,5 +9501,39 @@ mod rule_notification_tests {
             .await
             .unwrap_err();
         assert!(matches!(error, AlertError::PromqlMissingQuery));
+    }
+
+    #[tokio::test]
+    async fn traces_alert_url_opens_the_traces_page() {
+        let mut alert = Alert::default();
+        alert.org_id = "org".into();
+        alert.stream_type = StreamType::Traces;
+        alert.stream_name = "default".into();
+        alert.query_condition.query_type = QueryType::SQL;
+        alert.query_condition.sql = Some("SELECT span_id FROM \"default\"".into());
+        let options = ProcessTemplateOptions {
+            rows_end_time: 0,
+            start_time: None,
+            evaluation_timestamp: 0,
+            is_email: false,
+            level: None,
+            actual_value: None,
+            episode_id: None,
+            resolved: false,
+        };
+        let context = build_notification_context("org", &alert, &[], &[], options, None).await;
+        let url = if let Some((_, suffix)) = context.alert_url.split_once("/web/short/") {
+            let id = suffix.split('?').next().unwrap();
+            short_url::retrieve(&alert.org_id, id).await.unwrap()
+        } else {
+            context.alert_url
+        };
+        assert!(url.contains("/web/traces?stream=default&"));
+        assert!(url.contains("&from=") && url.contains("&to="));
+        assert!(url.contains("&org_identifier=org&"));
+        assert!(url.ends_with("&tab=spans"));
+        assert!(!url.contains("/web/logs"));
+        assert!(!url.contains("sql_mode"));
+        assert!(!url.contains("query="));
     }
 }

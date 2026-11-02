@@ -18,11 +18,17 @@ import { generateTraceContext } from "@/utils/zincutils";
 import { createPromQLChunkProcessor } from "./promqlChunkProcessor";
 import { computeStepSeconds } from "@/utils/metrics/metricDefaults";
 import { promqlSeriesCap } from "@/utils/dashboard/convertStateTimelineData";
+import { isRowTimeline } from "@/utils/dashboard/chartTypeGroups";
 import { HEATMAP_MAX_COLUMNS } from "@/utils/dashboard/heatmapDefaults";
 import { parseSearchError } from "@/utils/query/searchError";
 import { gt } from "@/types/i18n";
 import { convertOffsetToSeconds } from "@/utils/dashboard/dateTimeUtils";
-import { formulaInputs, isFormulaQuery, substituteFormula } from "@/utils/dashboard/promql/formula";
+import {
+  formulaInputs,
+  isFormulaQuery,
+  queryRefs,
+  substituteFormula,
+} from "@/utils/dashboard/promql/formula";
 
 // Fixed-length units only (ms): a time shift moves both ends of the window by one delta.
 const FIXED_OFFSET_MS: Record<string, number> = {
@@ -45,10 +51,11 @@ type QueryPlan = { query: string; skip: boolean; error?: string };
 // A hidden query is never sent: a formula embeds its inputs' text instead.
 const planQueries = (queries: any[], texts: string[]): QueryPlan[] => {
   const inputs = formulaInputs(queries, texts);
+  const refs = queryRefs(queries);
   return queries.map((it, i) => {
     if (it.config?.hide) return { query: texts[i], skip: true };
     if (!isFormulaQuery(it)) return { query: texts[i], skip: false };
-    const out = substituteFormula(texts[i], inputs);
+    const out = substituteFormula(texts[i], inputs, refs[i]);
     return "error" in out
       ? { query: texts[i], skip: true, error: out.error }
       : { query: out.expr, skip: false };
@@ -303,10 +310,9 @@ export const usePanelPromQLExecutor = (ctx: {
                       ? panelStepValue
                       : (heatmapStepValue ?? "0"),
                   // A state timeline needs samples over time, so it ignores a stored instant setting.
-                  query_type:
-                    panelSchema.value?.type === "state-timeline"
-                      ? "range"
-                      : it.config.query_type || "range",
+                  query_type: isRowTimeline(panelSchema.value?.type)
+                    ? "range"
+                    : it.config.query_type || "range",
                 },
                 type: "promql" as const,
                 traceId: traceId,

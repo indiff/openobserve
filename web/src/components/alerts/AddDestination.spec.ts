@@ -45,6 +45,8 @@ const switchRoute = vi.hoisted(() => ({ query: {} as Record<string, string> }));
 vi.mock("vue-router", () => ({
   useRouter: () => ({ push: vi.fn(), currentRoute: { value: switchRoute } }),
   useRoute: () => ({ params: {}, query: {} }),
+  onBeforeRouteLeave: vi.fn(),
+  onBeforeRouteUpdate: vi.fn(),
 }));
 
 // Passthrough spy: real toasts still render, and specs can read what was raised.
@@ -845,6 +847,27 @@ describe("AddDestination - prebuilt (single form, no nested <form>)", () => {
     const credentials = getForm(wrapper).state.values.credentials;
     expect(credentials.integrationKey).toBe("x".repeat(32));
     expect(credentials.severity).toBe("critical");
+  });
+
+  it.each([
+    ["https://events.eu.pagerduty.com/v2/enqueue", true],
+    ["https://events.pagerduty.com/v2/enqueue", false],
+  ])("restores the PagerDuty EU region toggle from the saved URL %s", async (url, euRegion) => {
+    const existingPagerDuty = {
+      name: "pagerduty-alerts",
+      url,
+      type: "http",
+      method: "post",
+      destination_type_name: "pagerduty",
+      template: "prebuilt_pagerduty",
+      skip_tls_verify: false,
+      headers: {},
+      metadata: { prebuilt_type: "pagerduty", routing_key: "x".repeat(32), severity: "critical" },
+    };
+    wrapper = mountComp({ isAlerts: true, destination: existingPagerDuty });
+    await flushPromises();
+
+    expect(getForm(wrapper).state.values.credentials.euRegion).toBe(euRegion);
   });
 
   // The DOM wiring that makes Enter-in-any-field AND the footer Save submit the

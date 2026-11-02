@@ -241,6 +241,12 @@ mod m20261025_000003_add_mute_targets_to_downtimes;
 mod m20261025_000004_create_slack_alert_messages;
 mod m20261025_000005_add_held_action_to_slack_link_requests;
 mod m20261026_000001_backfill_v1_rca_pointer;
+mod m20261027_000001_alter_query_history;
+mod m20261028_000001_add_group_label_set_to_alert_states;
+mod m20261029_000001_widen_alert_dedup_fingerprint;
+mod m20261030_000001_add_suppress_repeats_to_alerts;
+mod m20261030_000001_create_org_domain_ownership_table;
+mod m20261030_000002_create_org_domain_ownership_req_table;
 /// Shared body of the two `folder_id` migrations above; not a migration itself.
 mod workflow_folder_id;
 
@@ -433,10 +439,13 @@ pub(crate) async fn create_rum_pa_tables(db: &sea_orm::DatabaseConnection) -> Re
 
 /// Apply only the Slack app tables, idempotently, for tests in any crate.
 #[cfg(any(test, feature = "test-utils"))]
-pub(crate) async fn create_slack_tables<C: sea_orm::ConnectionTrait>(db: &C) -> Result<(), DbErr> {
+pub(crate) async fn create_slack_tables(db: &sea_orm::DatabaseConnection) -> Result<(), DbErr> {
+    use sea_orm_migration::MigrationTrait;
     m20261018_000001_create_slack_tables::create_all(db).await?;
     m20261025_000004_create_slack_alert_messages::create_all(db).await?;
-    m20261025_000005_add_held_action_to_slack_link_requests::add_column(db).await
+    m20261025_000005_add_held_action_to_slack_link_requests::Migration
+        .up(&SchemaManager::new(db))
+        .await
 }
 
 /// Apply only `alert_acks`, idempotently, for tests in any crate.
@@ -457,6 +466,9 @@ pub(crate) async fn create_alert_states_for_test(
         .up(&manager)
         .await?;
     m20261025_000001_add_firing_started_at_to_alert_states::Migration
+        .up(&manager)
+        .await?;
+    m20261028_000001_add_group_label_set_to_alert_states::Migration
         .up(&manager)
         .await
 }
@@ -493,6 +505,20 @@ pub(crate) fn alert_slack_migrations_for_test() -> Vec<Box<dyn MigrationTrait>> 
 pub(crate) async fn backfill_v1_rca_pointer(db: &sea_orm::DatabaseConnection) -> Result<(), DbErr> {
     m20261026_000001_backfill_v1_rca_pointer::Migration
         .up(&SchemaManager::new(db))
+        .await
+}
+
+/// Apply the query_history table and its columns, idempotently, for tests in any crate.
+#[cfg(any(test, feature = "test-utils"))]
+pub(crate) async fn create_query_history_table(
+    db: &sea_orm::DatabaseConnection,
+) -> Result<(), DbErr> {
+    let manager = SchemaManager::new(db);
+    m20261004_000001_create_query_history::Migration
+        .up(&manager)
+        .await?;
+    m20261027_000001_alter_query_history::Migration
+        .up(&manager)
         .await
 }
 
@@ -725,6 +751,12 @@ impl MigratorTrait for Migrator {
             Box::new(m20261025_000003_add_mute_targets_to_downtimes::Migration),
             Box::new(m20261025_000004_create_slack_alert_messages::Migration),
             Box::new(m20261025_000005_add_held_action_to_slack_link_requests::Migration),
+            Box::new(m20261028_000001_add_group_label_set_to_alert_states::Migration),
+            Box::new(m20261029_000001_widen_alert_dedup_fingerprint::Migration),
+            Box::new(m20261027_000001_alter_query_history::Migration),
+            Box::new(m20261030_000001_add_suppress_repeats_to_alerts::Migration),
+            Box::new(m20261030_000001_create_org_domain_ownership_table::Migration),
+            Box::new(m20261030_000002_create_org_domain_ownership_req_table::Migration),
         ]
     }
 }
@@ -815,6 +847,14 @@ mod tests {
         (
             126,
             "m20261025_000005_add_held_action_to_slack_link_requests",
+        ),
+        (127, "m20261028_000001_add_group_label_set_to_alert_states"),
+        (128, "m20261029_000001_widen_alert_dedup_fingerprint"),
+        (129, "m20261027_000001_alter_query_history"),
+        (130, "m20261030_000001_add_suppress_repeats_to_alerts"),
+        (
+            131,
+            "m20261030_000002_create_org_domain_ownership_req_table",
         ),
     ];
 
@@ -915,6 +955,10 @@ mod tests {
                 "m20260924_000001_add_recovery_episode_columns",
             ),
             (
+                "m20260725_000001_create_alert_states_tables",
+                "m20261028_000001_add_group_label_set_to_alert_states",
+            ),
+            (
                 "m20250109_092400_recreate_tables_with_ksuids",
                 "m20261009_000001_create_downtimes",
             ),
@@ -933,6 +977,10 @@ mod tests {
             (
                 "m20261007_000001_scope_alert_dedup_state_by_org",
                 "m20261009_000001_create_downtimes",
+            ),
+            (
+                "m20261007_000001_scope_alert_dedup_state_by_org",
+                "m20261029_000001_widen_alert_dedup_fingerprint",
             ),
             (
                 "m20261009_000001_create_downtimes",
