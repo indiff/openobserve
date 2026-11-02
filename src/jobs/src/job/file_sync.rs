@@ -80,7 +80,10 @@ pub async fn run() {
         {
             let directory = PathBuf::from(directory);
             if let Err(e) = sync_directory(&directory, &checkpoint_path, &mut checkpoints).await {
-                log::error!("[FILE_SYNC] failed to sync directory {}: {e}", directory.display());
+                log::error!(
+                    "[FILE_SYNC] failed to sync directory {}: {e}",
+                    directory.display()
+                );
             }
         }
         tokio::time::sleep(POLL_INTERVAL).await;
@@ -125,15 +128,11 @@ async fn sync_directory(
         if !entry.file_type().await?.is_file() {
             continue;
         }
-        if let Err(e) = sync_file(
-            &entry.path(),
-            &stream_name,
-            checkpoint_path,
-            checkpoints,
-        )
-        .await
-        {
-            log::error!("[FILE_SYNC] failed to sync file {}: {e}", entry.path().display());
+        if let Err(e) = sync_file(&entry.path(), &stream_name, checkpoint_path, checkpoints).await {
+            log::error!(
+                "[FILE_SYNC] failed to sync file {}: {e}",
+                entry.path().display()
+            );
         }
     }
     Ok(())
@@ -149,18 +148,20 @@ async fn sync_file(
     let metadata = file.metadata().await?;
     let (device, inode) = file_identity(&metadata);
     let key = path.to_string_lossy().into_owned();
-    let checkpoint = checkpoints.files.entry(key).or_default();
-    if checkpoint.reset_if_changed(device, inode, metadata.len()) {
+    let checkpoint_changed = {
+        let checkpoint = checkpoints.files.entry(key.clone()).or_default();
+        checkpoint.reset_if_changed(device, inode, metadata.len())
+    };
+    if checkpoint_changed {
         save_checkpoints(checkpoint_path, checkpoints).await?;
     }
 
     let mut reader = BufReader::new(file);
-    reader
-        .seek(SeekFrom::Start(checkpoint.position))
-        .await?;
+    let mut position = checkpoints.files[&key].position;
+    reader.seek(SeekFrom::Start(position)).await?;
     let mut batch = Vec::new();
     let mut batch_bytes = 0;
-    let mut batch_end = checkpoint.position;
+    let mut batch_end = position;
     let mut line = Vec::new();
 
     loop {
@@ -177,7 +178,8 @@ async fn sync_file(
         batch.push(record);
         if batch.len() >= MAX_BATCH_RECORDS || batch_bytes >= MAX_BATCH_BYTES {
             ingest_batch(stream_name, &batch).await?;
-            checkpoint.position = batch_end;
+            position = batch_end;
+            checkpoints.files.get_mut(&key).unwrap().position = position;
             save_checkpoints(checkpoint_path, checkpoints).await?;
             batch.clear();
             batch_bytes = 0;
@@ -186,16 +188,13 @@ async fn sync_file(
 
     if !batch.is_empty() {
         ingest_batch(stream_name, &batch).await?;
-        checkpoint.position = batch_end;
+        checkpoints.files.get_mut(&key).unwrap().position = batch_end;
         save_checkpoints(checkpoint_path, checkpoints).await?;
     }
     Ok(())
 }
 
-async fn ingest_batch(
-    stream_name: &str,
-    records: &[serde_json::Value],
-) -> anyhow::Result<()> {
+async fn ingest_batch(stream_name: &str, records: &[serde_json::Value]) -> anyhow::Result<()> {
     let response = openobserve_core::logs::ingest::ingest(
         openobserve_core::ingestion::get_thread_id(),
         DEFAULT_ORG,
@@ -252,10 +251,7 @@ mod tests {
             record_from_line(b"database alert\n").unwrap()["message"],
             "database alert"
         );
-        assert_eq!(
-            record_from_line(b"\xff\n").unwrap()["message"],
-            "\u{fffd}"
-        );
+        assert_eq!(record_from_line(b"\xff\n").unwrap()["message"], "\u{fffd}");
     }
 
     #[test]

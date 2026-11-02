@@ -953,6 +953,7 @@ mod tests {
             SystemJobType::AnomalyDetection.as_email_local(),
             "anomaly_detection"
         );
+        assert_eq!(SystemJobType::FileSync.as_email_local(), "file_sync");
     }
 
     #[test]
