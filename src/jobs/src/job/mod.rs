@@ -43,7 +43,8 @@ mod db_monitoring;
 #[cfg(feature = "enterprise")]
 mod downtimes;
 mod file_list_dump;
-pub(crate) mod files;
+pub(crate) mod file_sync;
+mod files;
 mod flatten_compactor;
 #[cfg(feature = "enterprise")]
 mod fleet_inventory;
@@ -966,6 +967,9 @@ pub async fn init() -> Result<(), anyhow::Error> {
         // create wal dir
         if let Err(e) = std::fs::create_dir_all(&cfg.common.data_wal_dir) {
             log::error!("Failed to create wal dir: {e}");
+        }
+        if !cfg.common.sync_log_dir.trim().is_empty() {
+            tokio::task::spawn(file_sync::run());
         }
     }
 

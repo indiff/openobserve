@@ -31,6 +31,7 @@ pub enum SystemJobType {
     SelfReporting,
     InternalGrpc,
     AnomalyDetection,
+    FileSync,
 }
 
 impl SystemJobType {
@@ -42,6 +43,7 @@ impl SystemJobType {
             SystemJobType::SelfReporting => "self_reporting",
             SystemJobType::InternalGrpc => "internal_grpc",
             SystemJobType::AnomalyDetection => "anomaly_detection",
+            SystemJobType::FileSync => "file_sync",
         }
     }
 }
@@ -951,6 +953,7 @@ mod tests {
             SystemJobType::AnomalyDetection.as_email_local(),
             "anomaly_detection"
         );
+        assert_eq!(SystemJobType::FileSync.as_email_local(), "file_sync");
     }
 
     #[test]
