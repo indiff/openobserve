@@ -157,7 +157,7 @@ async fn sync_file(
     }
 
     let mut reader = BufReader::new(file);
-    let mut position = checkpoints.files[&key].position;
+    let position = checkpoints.files[&key].position;
     reader.seek(SeekFrom::Start(position)).await?;
     let mut batch = Vec::new();
     let mut batch_bytes = 0;
@@ -178,8 +178,7 @@ async fn sync_file(
         batch.push(record);
         if batch.len() >= MAX_BATCH_RECORDS || batch_bytes >= MAX_BATCH_BYTES {
             ingest_batch(stream_name, &batch).await?;
-            position = batch_end;
-            checkpoints.files.get_mut(&key).unwrap().position = position;
+            checkpoints.files.get_mut(&key).unwrap().position = batch_end;
             save_checkpoints(checkpoint_path, checkpoints).await?;
             batch.clear();
             batch_bytes = 0;
