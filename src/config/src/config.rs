@@ -2100,6 +2100,12 @@ pub struct Common {
     #[env_config(name = "ZO_INSTANCE_NAME", default = "")]
     pub instance_name: String,
     pub instance_name_short: String,
+    #[env_config(
+        name = "ZO_SYNC_LOG_DIR",
+        default = "",
+        help = "Comma-separated directories whose regular files are tailed into logs streams named after their parent directory."
+    )]
+    pub sync_log_dir: String,
     #[env_config(name = "ZO_INGESTION_URL", default = "")]
     pub ingestion_url: String,
     #[env_config(name = "ZO_WEB_URL", default = "http://localhost:5080")]
