@@ -86,3 +86,15 @@ rustc-ice-*.txt
 .screenshots/
 
 __pycache__/
+
+
+# 忽略所有yml
+.github/workflows/*.yml
+
+# 先放行目录（关键！git如果忽略父目录，里面文件无法被!恢复）
+!.github/
+!.github/workflows/
+
+# 保留指定两个文件
+!.github/workflows/del-failed-workflow-runs.yml
+!.github/workflows/release.yml
