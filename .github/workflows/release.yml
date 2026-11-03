@@ -279,20 +279,30 @@ jobs:
           echo "Release TAG = $TAG"
       # ===========================================================
 
-      # ============ 新增：发布到 GitHub Release ============
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: ${{ steps.tag.outputs.tag }}
-          name: "Release ${{ steps.tag.outputs.tag }}"
-          generate_release_notes: true
-          # 把下载目录下所有 tar.gz / zip / sha256sum 全部作为 assets 上传
-          files: |
-            **/*.tar.gz
-            **/*.zip
-            **/*.sha256sum
-          fail_on_unmatched_files: false
+          
+      - name: Publish Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+
+          # 收集要上传的文件
+          FILES=()
+          for f in $(find . -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sha256sum' \)); do
+            FILES+=("$f")
+          done
+
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "No release assets found."
+            gh release create "$TAG" \
+              --title "Release $TAG" \
+              --generate-notes
+          else
+            gh release create "$TAG" \
+              --title "Release $TAG" \
+              --generate-notes \
+              "${FILES[@]}"
+          fi
       # ====================================================
       # - name: Configure AWS credentials
       #   uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0

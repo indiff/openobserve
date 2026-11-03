@@ -75,7 +75,9 @@ inherits = "release"
 opt-level = 1
 codegen-units = 16
 debug = false
-debug-assertions = true
+# debug-assertions = true
+# 内嵌网页
+debug-assertions = false
 strip = true
 lto = false
 incremental = false
