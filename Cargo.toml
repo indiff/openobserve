@@ -240,6 +240,7 @@ super_cluster_queue = { workspace = true, optional = true }
 usage_reporting.workspace = true
 openobserve-jobs.workspace = true
 openobserve-mcp.workspace = true
+axum.workspace = true
 
 [dev-dependencies]
 arrow.workspace = true
