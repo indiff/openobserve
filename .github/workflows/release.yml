@@ -81,6 +81,7 @@ jobs:
           npm config set registry https://registry.npmmirror.com
           npm ci
           npm run build
+          zip -r openobserve-ui-dist.zip dist
 
       - name: Install Protoc for linux
         if: contains(matrix.arch, 'x86_64-unknown-linux') || contains(matrix.arch, 'linux-musl')
@@ -217,7 +218,14 @@ jobs:
           cd target/${{ matrix.arch }}/${{ env.BUILD_PROFILE }}
           7z a -tzip ${{ matrix.file_name }}.zip openobserve.exe
           certutil.exe -hashfile ${{ matrix.file_name }}.zip sha256|head -n 2|tail -n 1 > ${{ matrix.file_name }}.zip.sha256sum
+      
+      - name: Archive UI dist zip
+        uses: actions/upload-artifact@v4
+        with:
+         name: openobserve-ui
+         path: web/openobserve-ui-dist.zip
 
+      
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
