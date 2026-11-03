@@ -263,8 +263,12 @@ jobs:
           CN_DATE="$(TZ='Asia/Shanghai' date +%Y%m%d)"
           if [ -z "$VERSION" ]; then
             echo "无法确定版本号" >&2
-            VERSION="${CN_DATE}"
-            TAG="${CN_DATE}"
+            VERSION=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[0].version')
+            TAG="${VERSION}-${CN_DATE}"
+            if [ -z "$VERSION" ]; then
+                VERSION="${CN_DATE}"
+                TAG="${CN_DATE}"
+            fi
           else
             TAG="${VERSION}-${CN_DATE}"
           fi

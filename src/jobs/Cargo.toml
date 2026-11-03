@@ -92,3 +92,5 @@ serde_json.workspace = true
 tokio.workspace = true
 tonic.workspace = true
 wal.workspace = true
+# file_sync.rs 用到的依赖
+axum.workspace = true
