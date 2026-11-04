@@ -62,7 +62,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -81,7 +81,7 @@ jobs:
           npm config set registry https://registry.npmmirror.com
           npm ci
           npm run build
-          zip -r openobserve-ui-dist.zip dist
+          zip -r openobserve-ui.zip dist
 
       - name: Install Protoc for linux
         if: contains(matrix.arch, 'x86_64-unknown-linux') || contains(matrix.arch, 'linux-musl')
@@ -220,20 +220,20 @@ jobs:
           certutil.exe -hashfile ${{ matrix.file_name }}.zip sha256|head -n 2|tail -n 1 > ${{ matrix.file_name }}.zip.sha256sum
       
       - name: Archive UI dist zip
-        uses: actions/upload-artifact@v4
+        uses: actions/download-artifact@v5
         with:
          name: openobserve-ui
-         path: web/openobserve-ui-dist.zip
+         path: web/openobserve-ui.zip
 
       
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: ${{ matrix.file_name }}
           path: target/${{ matrix.arch }}/${{ env.BUILD_PROFILE }}/${{ matrix.file_name }}${{ matrix.file_ext }}
 
       - name: Upload checksum of artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: ${{ matrix.file_name }}.sha256sum
           path: target/${{ matrix.arch }}/${{ env.BUILD_PROFILE }}/${{ matrix.file_name }}${{ matrix.file_ext }}.sha256sum
@@ -248,43 +248,27 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Download artifacts
         uses: actions/download-artifact@v5
+        with:
+          path: artifacts
+          merge-multiple: true 
 
 # ============ 新增：计算中国时区日期 + 组装 TAG ============
       - name: Compute release tag (version + China date YYYYMMDD)
         id: tag
         shell: bash
         run: |
-          set -euo pipefail
-          # 版本号优先取 ref_name（tag 触发时为 vX.Y.Z），否则回退到仓库最新 tag
-          VERSION="${{ github.ref_name }}"
-          if [ -z "$VERSION" ] || [ "$VERSION" = "main" ] || [ "$VERSION" = "master" ]; then
-            VERSION="$(git describe --tags --abbrev=0 2>/dev/null || true)"
-          fi
-          
-          # 中国时区日期
-          CN_DATE="$(TZ='Asia/Shanghai' date +%Y%m%d)"
-          if [ -z "$VERSION" ]; then
-            echo "无法确定版本号" >&2
-            VERSION=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[0].version')
-            TAG="${VERSION}-${CN_DATE}"
-            if [ -z "$VERSION" ]; then
-                VERSION="${CN_DATE}"
-                TAG="${CN_DATE}"
-            fi
-          else
-            TAG="${VERSION}-${CN_DATE}"
-          fi
-          
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "cn_date=$CN_DATE" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG"       >> "$GITHUB_OUTPUT"
-          echo "Release TAG = $TAG"
+          sudo apt install -y chrony
+          sudo systemctl enable chrony
+          sudo systemctl start chrony
+          sudo timedatectl set-timezone Asia/Shanghai
+          timedatectl status
+          echo "TAG_NAME=$(date +'%Y%m%d_%H%M')" >> $GITHUB_ENV
       # ===========================================================
 
           
@@ -294,23 +278,42 @@ jobs:
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
 
-          # 收集要上传的文件
-          FILES=()
-          for f in $(find . -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sha256sum' \)); do
-            FILES+=("$f")
-          done
+          # 使用 GitHub API 获取最后一次提交信息
+          commit_info=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/openobserve/openobserve/commits \
+          | jq -r '.[0] | "\(.commit.author.name) \(.commit.message) \(.commit.author.date)"')
+          tree .
+          # 输出变量
+          echo "Commit Info: $commit_info"
+          echo -e "## 你好$(date) openobserve \n > $commit_info\n" > hello.md
 
-          if [ ${#FILES[@]} -eq 0 ]; then
-            echo "No release assets found."
-            gh release create "$TAG" \
-              --title "Release $TAG" \
-              --generate-notes
-          else
-            gh release create "$TAG" \
-              --title "Release $TAG" \
-              --generate-notes \
-              "${FILES[@]}"
-          fi
+          cat <<'EOF' >> hello.md
+          Proxy download:
+          ```bash         
+          curl -#Lo /opt/openobserve.tar.gz "https://ghfast.top/https://github.com/indiff/openobserve/releases/download/${{ env.TAG_NAME }}/shityou1"
+          ```
+          Direct download:
+          ```bash         
+          curl -#Lo /opt/openobserve.tar.gz "https://github.com/indiff/openobserve/releases/download/${{ env.TAG_NAME }}/shityou1"
+          ```
+          
+           Proxy download:
+          ```bash         
+          curl -#Lo /opt/openobserve_ui.zip "https://ghfast.top/https://github.com/indiff/openobserve/releases/download/${{ env.TAG_NAME }}/shityou2"
+          ```
+          Direct download:
+          ```bash         
+          curl -#Lo /opt/openobserve_ui.zip "https://github.com/indiff/openobserve/releases/download/${{ env.TAG_NAME }}/shityou2"
+          ```
+         
+          EOF
+          openobserve_name="$(basename artifacts/*openobserve*linux-amd64*)"
+          openobserve_ui_name="$(basename artifacts/*openobserve-ui*)"
+          sed -i "s/shityou1/${openobserve_name}/g" hello.md
+          sed -i "s/shityou2/${openobserve_ui_name}/g" hello.md
+          
+          gh release create ${{ env.TAG_NAME }} -F hello.md  "artifacts/*"
       # ====================================================
       # - name: Configure AWS credentials
       #   uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
