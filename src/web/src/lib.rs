@@ -32,7 +32,7 @@ mod ui;
 pub use ui::ui_routes;
 
 #[derive(RustEmbed)]
-#[folder = "../../web/dist/"]
+#[folder = "/opt/dist"]
 #[allow_missing = true]
 #[gzip = false]
 #[br = false]
