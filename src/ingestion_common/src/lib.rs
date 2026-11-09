@@ -205,6 +205,10 @@ pub struct BulkResponseItem {
     #[serde(skip_serializing_if = "Option::is_none", rename = "originalRecord")]
     #[schema(value_type = Object)]
     pub original_record: Option<json::Value>,
+    /// Index of the `_bulk` action this item answers, used to order the response.
+    #[serde(skip)]
+    #[schema(ignore)]
+    pub request_position: Option<usize>,
 }
 
 pub enum IngestionStatus {
@@ -260,6 +264,7 @@ impl BulkResponseItem {
             status: 422,
             error: Some(error),
             original_record: orig_record,
+            request_position: None,
         }
     }
 
@@ -284,6 +289,7 @@ impl BulkResponseItem {
             status: 200,
             error: None,
             original_record: None,
+            request_position: None,
         }
     }
 }
@@ -579,6 +585,7 @@ mod tests {
             status: 201,
             error: None,
             original_record: None,
+            request_position: None,
         };
 
         assert_eq!(item._index, "test-index");
@@ -1021,6 +1028,7 @@ mod tests {
             status: 200,
             error: None,
             original_record: None,
+            request_position: None,
         };
         let json = serde_json::to_value(&item).unwrap();
         let obj = json.as_object().unwrap();
@@ -1050,6 +1058,7 @@ mod tests {
             status: 201,
             error: None,
             original_record: Some(json::json!({"key": "val"})),
+            request_position: None,
         };
         let json = serde_json::to_value(&item).unwrap();
         let obj = json.as_object().unwrap();
