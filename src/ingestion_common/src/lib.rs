@@ -32,6 +32,8 @@ pub enum SystemJobType {
     InternalGrpc,
     AnomalyDetection,
     FileSync,
+    AlertCalibration,
+    AutoObserve,
 }
 
 impl SystemJobType {
@@ -44,6 +46,8 @@ impl SystemJobType {
             SystemJobType::InternalGrpc => "internal_grpc",
             SystemJobType::AnomalyDetection => "anomaly_detection",
             SystemJobType::FileSync => "file_sync",
+            SystemJobType::AlertCalibration => "alert_calibration",
+            SystemJobType::AutoObserve => "autoobserve",
         }
     }
 }
