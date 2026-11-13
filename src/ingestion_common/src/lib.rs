@@ -34,6 +34,7 @@ pub enum SystemJobType {
     FileSync,
     AlertCalibration,
     AutoObserve,
+    ServiceSignals,
 }
 
 impl SystemJobType {
@@ -48,6 +49,7 @@ impl SystemJobType {
             SystemJobType::FileSync => "file_sync",
             SystemJobType::AlertCalibration => "alert_calibration",
             SystemJobType::AutoObserve => "autoobserve",
+            SystemJobType::ServiceSignals => "service_signals",
         }
     }
 }

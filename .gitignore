@@ -86,6 +86,7 @@ rustc-ice-*.txt
 /.claude/worktrees/
 .screenshots/
 
+# ---------- Python ----------
 __pycache__/
 
 
