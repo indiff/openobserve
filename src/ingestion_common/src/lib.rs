@@ -35,6 +35,7 @@ pub enum SystemJobType {
     AlertCalibration,
     AutoObserve,
     ServiceSignals,
+    SessionReplay,
 }
 
 impl SystemJobType {
@@ -50,6 +51,7 @@ impl SystemJobType {
             SystemJobType::AlertCalibration => "alert_calibration",
             SystemJobType::AutoObserve => "autoobserve",
             SystemJobType::ServiceSignals => "service_signals",
+            SystemJobType::SessionReplay => "session_replay",
         }
     }
 }
@@ -965,6 +967,10 @@ mod tests {
         assert_eq!(
             SystemJobType::AnomalyDetection.as_email_local(),
             "anomaly_detection"
+        );
+        assert_eq!(
+            SystemJobType::SessionReplay.as_email_local(),
+            "session_replay"
         );
         assert_eq!(SystemJobType::FileSync.as_email_local(), "file_sync");
     }
