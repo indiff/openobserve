@@ -35,8 +35,11 @@ use config::{
     },
     utils::sql::is_simple_aggregate_query,
 };
+use datafusion::common::TableReference;
 use infra::errors::Error;
 
+#[cfg(feature = "vectorscan")]
+use crate::datafusion::physical_optimizer::sdr_redact::redaction_digest;
 use crate::{
     cache::result_utils::{is_ranked_by_non_timestamp, normalize_ts_order_by},
     partition::sql_context::PartitionSqlContext,
@@ -96,18 +99,13 @@ pub fn check_streaming_redaction(
     org_id: &str,
     stream_type: config::meta::stream::StreamType,
     streaming_id: Option<&str>,
-    streams: &[datafusion::common::TableReference],
+    streams: &[TableReference],
     raw_streams: &RawStreams,
 ) -> Result<(), Error> {
     let Some(recorded) = streaming_id.and_then(registry::get_redaction_digest) else {
         return Ok(());
     };
-    let current = crate::datafusion::physical_optimizer::sdr_redact::redaction_digest(
-        org_id,
-        stream_type,
-        streams,
-        Some(raw_streams),
-    );
+    let current = redaction_digest(org_id, stream_type, streams, Some(raw_streams));
     if recorded != current {
         return Err(Error::Message(
             "search-time redaction changed while the query ran; run it again".to_string(),
@@ -121,7 +119,7 @@ pub fn check_streaming_redaction(
     _org_id: &str,
     _stream_type: config::meta::stream::StreamType,
     _streaming_id: Option<&str>,
-    _streams: &[datafusion::common::TableReference],
+    _streams: &[TableReference],
     _raw_streams: &RawStreams,
 ) -> Result<(), Error> {
     Ok(())
@@ -177,19 +175,18 @@ pub async fn prepare_streaming_aggregate(
         if cache_interval_mins > 0 {
             let streaming_id = ider::uuid();
             #[cfg(feature = "vectorscan")]
-            let redaction_digest =
-                crate::datafusion::physical_optimizer::sdr_redact::redaction_digest(
-                    org_id,
-                    stream_type,
-                    &ctx.sql.stream_names,
-                    Some(raw_streams),
-                );
+            let digest = redaction_digest(
+                org_id,
+                stream_type,
+                &ctx.sql.stream_names,
+                Some(raw_streams),
+            );
             #[cfg(not(feature = "vectorscan"))]
-            let redaction_digest: Option<String> = None;
+            let digest: Option<String> = None;
             let hashed_query = get_aggregation_cache_key_from_request(
                 req,
                 ctx.sql.histogram_interval,
-                redaction_digest.as_deref(),
+                digest.as_deref(),
             );
             let cache_file_path = create_aggregation_cache_file_path(
                 org_id,
@@ -253,7 +250,7 @@ pub async fn prepare_streaming_aggregate(
 
             // Store partition strategy for use in do_partitioned_search
             registry::set_partition_strategy(&streaming_id, partition_strategy);
-            registry::set_redaction_digest(&streaming_id, redaction_digest);
+            registry::set_redaction_digest(&streaming_id, digest);
 
             log::info!(
                 "[trace_id {trace_id}] [streaming_id: {streaming_id}] init streaming_agg cache: cache_file_path: {cache_file_path}"
