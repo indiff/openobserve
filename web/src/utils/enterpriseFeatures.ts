@@ -401,26 +401,9 @@ export interface FeatureAccess {
  * `context` is required (not defaulted) so every call site is explicit about
  * where its state comes from — see {@link buildFeatureGateContext}.
  */
-export function checkFeatureAccess(key: FeatureKey, context: FeatureGateContext): FeatureAccess {
-  const gate = FEATURE_GATES[key];
-  const allowed = gate.predicate(context);
-  if (allowed) return { allowed: true, visible: true, message: raw(""), ctaRelevant: true };
-  const pureCloud = context.isCloud && !context.isEnterprise;
-  if (gate.cloudOffers === false && pureCloud) {
-    return { allowed: false, visible: false, message: raw(""), ctaRelevant: true };
-  }
-  // RBAC alone depends on an admin toggle, not just edition — an edition
-  // that already supports it just needs the toggle on, so "upgrade" is a
-  // false, confusing CTA here.
-  if (key === "rbac" && (context.isEnterprise || context.isCloud) && !context.rbac) {
-    return {
-      allowed: false,
-      visible: true,
-      message: gt("enterpriseFeature.rbacDisabled"),
-      ctaRelevant: false,
-    };
-  }
-  return { allowed: false, visible: true, message: lockedMessage(key), ctaRelevant: true };
+export function checkFeatureAccess(_key: FeatureKey, _context: FeatureGateContext): FeatureAccess {
+  // This build unlocks every edition-gated feature.
+  return { allowed: true, visible: true, message: raw(""), ctaRelevant: true };
 }
 
 /** The locked-screen text for `key`, for a page a runtime check (not the build flags) locked. */

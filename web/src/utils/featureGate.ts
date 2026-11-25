@@ -37,7 +37,7 @@ interface RejectedResponse {
 
 /** A key the backend did not send is enabled: older backends and ungated features omit it. */
 export const featureState = (features: FeatureStates | undefined, key: string): FeatureState =>
-  features?.[key] ?? "enabled";
+  features?.[key] === "hidden" ? "hidden" : "enabled";
 
 /** Menu state for a feature whose enabled path still needs its own runtime flag. */
 export const menuState = (
