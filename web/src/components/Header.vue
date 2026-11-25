@@ -204,34 +204,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
         </OButton>
 
         <OPageHeaderStatus fallback />
-        <!-- EDITION BADGE / UPGRADE BUTTON -->
-        <!-- Enterprise/Cloud: ghost-muted badge (informational, opens about dialog) -->
-        <!-- Open Source: primary CTA to drive upgrades -->
-        <OButton
-          :variant="
-            config.isEnterprise === 'true' || config.isCloud === 'true'
-              ? 'outline-primary'
-              : 'primary'
-          "
-          size="xs"
-          class="max-md:hidden md:max-xl:min-w-0"
-          data-test="upgrade-to-enterprise-btn"
-          @click="openEnterpriseDialog"
-        >
-          <template #icon-left>
-            <OIcon
-              :name="
-                config.isEnterprise === 'true' || config.isCloud === 'true'
-                  ? 'verified'
-                  : 'card-giftcard'
-              "
-              size="sm"
-            />
-          </template>
-          <span class="md:max-xl:truncate">{{ enterpriseButtonText }}</span>
-          <OTooltip :content="enterpriseButtonText" />
-        </OButton>
-
         <!-- ORGANIZATION SELECTOR: Dropdown to switch between organizations -->
         <OrganizationSelector
           :organizations="organizations"
