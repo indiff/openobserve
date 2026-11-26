@@ -100,3 +100,4 @@ __pycache__/
 # 保留指定两个文件
 !/.github/workflows/del-failed-workflow-runs.yml
 !/.github/workflows/release.yml
+/.vs

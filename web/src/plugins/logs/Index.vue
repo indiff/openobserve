@@ -2162,8 +2162,9 @@ export default defineComponent({
 
     const drillDownPickerStreams = computed<PickerStream[]>(() =>
       (searchObj.data.stream.streamLists || []).map(
-        (option: { value: string; internal?: boolean }) => ({
+        (option: { value: string; label: string; internal?: boolean }) => ({
           name: option.value,
+          display_name: option.label,
           is_internal: option.internal === true,
         }),
       ),

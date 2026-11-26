@@ -470,6 +470,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
                       <div
                         class="rounded-default border-card-glass-border divide-card-glass-border divide-y border"
                       >
+                        <div v-if="modelValue.stream_type === 'logs'" class="flex flex-col gap-1 p-3">
+                          <OInput
+                            data-test="stream-details-display-name-input"
+                            v-model="displayName"
+                            :label="t('logStream.displayName')"
+                            :help-text="t('logStream.displayNameHelp')"
+                            class="max-w-55"
+                            @update:model-value="markFormDirty"
+                          />
+                        </div>
                         <!-- Data Retention -->
                         <div v-if="showDataRetention" class="flex flex-col gap-1 p-3">
                           <label class="text-compact text-text-heading font-[500]">
@@ -1012,6 +1022,7 @@ export default defineComponent({
     const isCloud = config.isCloud;
     // Empty means the stream inherits; a default must never be saved as the stream's own value.
     const dataRetentionDays = ref<number | "">("");
+    const displayName = ref("");
     const storeOriginalData = ref(false);
     const enableDistinctFields = ref(false);
     const maxQueryRange = ref(0);
@@ -1417,6 +1428,7 @@ export default defineComponent({
 
     const setSchema = (streamResponse: any) => {
       const schemaMapping = new Set<string>();
+      displayName.value = streamResponse.settings?.display_name || "";
 
       //here lets add the pattern associations to the streamResponse
       streamResponse.settings.pattern_associations = streamResponse.pattern_associations;
@@ -1600,6 +1612,7 @@ export default defineComponent({
         dynamic_partition?: boolean;
         partition_time_level?: string;
         flatten_level?: number;
+        display_name?: string;
       }
       let settings: StreamSettingsPayload = {
         fields: [], // only used for add new fields
@@ -1611,6 +1624,9 @@ export default defineComponent({
         extended_retention_days: [...indexData.value.extended_retention_days],
         pattern_associations: [...patternAssociations.value],
       };
+      if (modelValue.stream_type === "logs") {
+        settings.display_name = displayName.value.trim();
+      }
 
       if (showDataRetention.value && Number(dataRetentionDays.value) < 0) {
         toast({
@@ -2595,6 +2611,7 @@ export default defineComponent({
       showFullTextSearchColumn,
       getImageURL,
       dataRetentionDays,
+      displayName,
       inheritedRetention,
       serverInheritedRetention,
       storeOriginalData,

@@ -2097,6 +2097,31 @@ describe("Schema Component Tests", () => {
       expect(mockUpdateSettings).toHaveBeenCalled();
     });
 
+    it("saves and clears the display alias without changing the stream name", async () => {
+      mockUpdateSettings.mockResolvedValue({ data: { code: 200 } });
+      mockUpdateSettings.mockClear();
+      wrapper.vm.updateActiveMainTab("configuration");
+      await wrapper.vm.$nextTick();
+      const input = wrapper.find('[data-test="stream-details-display-name-input"] input');
+      await input.setValue(" Application logs ");
+      expect(wrapper.vm.formDirtyFlag).toBe(true);
+      await wrapper.vm.onSubmit();
+      expect(mockUpdateSettings).toHaveBeenLastCalledWith(
+        expect.anything(),
+        "save-stream",
+        "logs",
+        expect.objectContaining({ display_name: "Application logs" }),
+      );
+      wrapper.vm.displayName = "";
+      await wrapper.vm.onSubmit();
+      expect(mockUpdateSettings).toHaveBeenLastCalledWith(
+        expect.anything(),
+        "save-stream",
+        "logs",
+        expect.objectContaining({ display_name: "" }),
+      );
+    });
+
     it("should handle updateSettings error in onSubmit", async () => {
       mockUpdateSettings.mockRejectedValue({
         response: { data: { message: "Update failed" } },

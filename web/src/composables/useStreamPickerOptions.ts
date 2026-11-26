@@ -23,11 +23,14 @@ export const INTERNAL_GROUP_HIDE = "internal-streams:hide";
 /** Header value whose action shows the internal streams again. */
 export const INTERNAL_GROUP_SHOW = "internal-streams:show";
 
-export type PickerStream = Pick<StreamListItem, "name" | "is_internal">;
+export type PickerStream = Pick<StreamListItem, "name" | "is_internal"> & {
+  display_name?: string;
+};
 
 export interface StreamPickerOption {
   label: I18nText;
   value?: string;
+  searchText?: string;
   header?: boolean;
   headerCount?: I18nText;
   headerAction?: I18nText;
@@ -96,33 +99,45 @@ export function internalGroupHeader(
 export function buildStreamPickerOptions(input: StreamPickerInput): StreamPickerState {
   const user: StreamPickerOption[] = [];
   const internal: StreamPickerOption[] = [];
-  const listedNames: string[] = [];
-  const hiddenNames: string[] = [];
+  const listedStreams: PickerStream[] = [];
+  const hiddenStreams: PickerStream[] = [];
   for (const stream of input.streams) {
-    const option = { label: raw(stream.name), value: stream.name };
+    const option = {
+      label: raw(stream.display_name || stream.name),
+      value: stream.name,
+      ...(stream.display_name && stream.display_name !== stream.name
+        ? { searchText: stream.name.toLowerCase() }
+        : {}),
+    };
     if (!stream.is_internal) user.push(option);
-    else if (input.hide && !input.keep.has(stream.name)) hiddenNames.push(stream.name);
+    else if (input.hide && !input.keep.has(stream.name)) hiddenStreams.push(stream);
     else {
       internal.push(option);
-      listedNames.push(stream.name);
+      listedStreams.push(stream);
     }
   }
 
   // OSelect's own matching rule, so the header counts agree with the rows its search leaves.
   const term = input.search.trim().toLowerCase();
-  const countMatching = (names: string[]) =>
-    term ? names.filter((name) => name.toLowerCase().includes(term)).length : names.length;
+  const countMatching = (streams: PickerStream[]) =>
+    term
+      ? streams.filter(
+          (stream) =>
+            stream.name.toLowerCase().includes(term) ||
+            stream.display_name?.toLowerCase().includes(term),
+        ).length
+      : streams.length;
 
   if (!input.hide) {
-    const header = internalGroupHeader("shown", countMatching(listedNames), input.text);
+    const header = internalGroupHeader("shown", countMatching(listedStreams), input.text);
     return { options: internal.length ? [...user, header, ...internal] : user };
   }
-  if (!internal.length && !hiddenNames.length) return { options: user };
+  if (!internal.length && !hiddenStreams.length) return { options: user };
 
-  const matches = term ? countMatching(hiddenNames) : 0;
+  const matches = term ? countMatching(hiddenStreams) : 0;
   const header = matches
     ? internalGroupHeader("match", matches, input.text)
-    : internalGroupHeader("hidden", hiddenNames.length, input.text);
+    : internalGroupHeader("hidden", hiddenStreams.length, input.text);
   return { options: [...user, header, ...internal] };
 }
 

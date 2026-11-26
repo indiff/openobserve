@@ -2,6 +2,13 @@
 
 This template should help get you started developing with Vue 3 in Vite.
 
+## Log stream display aliases
+
+Open a log stream's details, select **Configuration**, and set **Display alias**.
+The alias is shared within the organization and appears in the Logs stream
+picker. Clear it to display the original stream name again. Queries, URLs, and
+APIs continue to use the original stream name.
+
 ## Recommended IDE Setup
 
 [VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur) + [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin).
@@ -72,4 +79,3 @@ npm run test:e2e
 ```sh
 npm run lint
 ```
-

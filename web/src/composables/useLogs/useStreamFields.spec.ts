@@ -561,6 +561,20 @@ describe("useStreamFields Composable", () => {
         { label: "audit", value: "audit", internal: false },
       ]);
     });
+
+    it("uses the display alias without changing stream selection values", async () => {
+      searchObj.data.streamResults = {
+        list: [
+          { name: "app", settings: { display_name: "Application logs" } },
+          { name: "other", settings: { display_name: "" } },
+        ],
+      } as any;
+      await wrapper.vm.loadStreamLists(false);
+      expect(searchObj.data.stream.streamLists).toEqual([
+        { label: "Application logs", value: "app", internal: false },
+        { label: "other", value: "other", internal: false },
+      ]);
+    });
   });
 
   describe("per-type Logs selection keys (P1 step 2)", () => {

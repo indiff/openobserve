@@ -37,7 +37,7 @@ describe("installCommand", () => {
   it("pipes the Linux script from the agents repository into sudo bash with the target", () => {
     const cmd = installCommand("linux", target);
     expect(cmd).toContain(
-      "curl -fsSL https://raw.githubusercontent.com/openobserve/agents/main/fleet/install.sh | sudo bash -s --",
+      "curl -fsSL https://raw.giteeusercontent.com/qwop/agents/main/fleet/install.sh | sudo bash -s --",
     );
     expect(cmd).toContain("--url 'https://o2.example.com'");
     expect(cmd).toContain("--org 'acme'");
@@ -67,7 +67,7 @@ describe("installCommand", () => {
   it("runs the PowerShell script on Windows", () => {
     const cmd = installCommand("windows", target);
     expect(cmd).toContain(
-      "irm https://raw.githubusercontent.com/openobserve/agents/main/fleet/install.ps1",
+      "irm https://raw.giteeusercontent.com/qwop/agents/main/fleet/install.ps1",
     );
     expect(cmd).toContain("-Token 'o2ft_abc123'");
   });

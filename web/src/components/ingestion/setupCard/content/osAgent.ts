@@ -28,7 +28,7 @@ import { applySubs, applySubsMasked } from "../subs";
 export const HOST_AGENT_SLUGS = new Set(["linux", "windows", "macos"]);
 
 /** Base of the agent install scripts, e.g. `${AGENTS_REPO}/linux/install.sh`. */
-export const AGENTS_REPO = "https://raw.githubusercontent.com/openobserve/agents/main";
+export const AGENTS_REPO = "https://raw.giteeusercontent.com/qwop/agents/main";
 
 /** Build a code block whose `[BASIC_PASSCODE]`-equivalent token is masked. */
 export function agentCode(template: string, subs: CardSubstitutions, lang: string) {

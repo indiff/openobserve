@@ -75,7 +75,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
           side="bottom"
           align="start"
           max-width="17.5rem"
-          :content="raw(searchObj.data.stream.selectedStream.join(', '))"
+          :content="raw(searchObj.data.stream.selectedStream.map(streamDisplayName).join(', '))"
         />
       </div>
     </div>
@@ -512,11 +512,15 @@ export default defineComponent({
     });
 
     const pickerStreams = computed<PickerStream[]>(() =>
-      (streamList.value || []).map((option: { value: string; internal?: boolean }) => ({
+      (streamList.value || []).map((option: { value: string; label: string; internal?: boolean }) => ({
         name: option.value,
+        display_name: option.label,
         is_internal: option.internal === true,
       })),
     );
+
+    const streamDisplayName = (name: string) =>
+      pickerStreams.value.find((stream) => stream.name === name)?.display_name || name;
 
     const streamPickerOpen = ref(false);
     const streamPickerSearch = ref("");
@@ -570,7 +574,7 @@ export default defineComponent({
 
     const quickPickStreams = computed(() =>
       quickPickCandidates.value.slice(0, QUICK_PICK_LIMIT).map((s) => ({
-        label: s.name,
+        label: streamDisplayName(s.name),
         value: s.name,
         internal: s.is_internal === true,
       })),
@@ -1999,6 +2003,7 @@ export default defineComponent({
       router,
       searchObj,
       streamOptions,
+      streamDisplayName,
       filterFieldFn,
       addToFilter,
       clickFieldFn,

@@ -2,7 +2,7 @@ const { expect } = require('@playwright/test');
 const testLogger = require('../../playwright-tests/utils/test-logger.js');
 
 const PAGE_TIMEOUT_MS = 30000;
-const SCRIPT_BASE = 'https://raw.githubusercontent.com/openobserve/agents/main';
+const SCRIPT_BASE = 'https://raw.giteeusercontent.com/qwop/agents/main';
 const IMAGE = 'o2cr.ai/openobserve/otel-fleet-collector';
 const HELM_NAMESPACE = 'openobserve-collector';
 const AGENT_RELEASE = 'otel-fleet-collector';

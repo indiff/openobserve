@@ -58,7 +58,10 @@ describe("updateStreams", () => {
     searchObj.data.streamResults = { list: [{ name: "stale" }] } as any;
     searchObj.data.stream.streamType = "logs";
     getStreamsMock.mockResolvedValueOnce({
-      list: [{ name: "app" }, { name: "_rumdata", is_internal: true }],
+      list: [
+        { name: "app", settings: { display_name: "Application logs" } },
+        { name: "_rumdata", is_internal: true },
+      ],
     });
     const wrapper = mount(Host, { global: { plugins: [store, i18n] } });
 
@@ -66,7 +69,7 @@ describe("updateStreams", () => {
 
     expect(getStreamsMock).toHaveBeenCalledWith("logs", false);
     expect(searchObj.data.stream.streamLists).toEqual([
-      { label: "app", value: "app", internal: false },
+      { label: "Application logs", value: "app", internal: false },
       { label: "_rumdata", value: "_rumdata", internal: true },
     ]);
     wrapper.unmount();

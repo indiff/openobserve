@@ -109,6 +109,23 @@ describe("internalGroupHeader", () => {
 });
 
 describe("buildStreamPickerOptions", () => {
+  it("shows an alias while retaining the stream name for selection and search", () => {
+    const { options } = build({
+      streams: [{ name: "app_logs", display_name: "Application logs" }],
+    });
+    expect(options).toEqual([
+      { label: "Application logs", value: "app_logs", searchText: "app_logs" },
+    ]);
+  });
+
+  it("counts hidden internal streams matching either name or alias", () => {
+    const streams = [{ name: "_internal", display_name: "System events", is_internal: true }];
+    expect(build({ streams, hide: true, search: "events" }).options[0].headerCount).toBe("1 match");
+    expect(build({ streams, hide: true, search: "_internal" }).options[0].headerCount).toBe(
+      "1 match",
+    );
+  });
+
   it("lists user streams first, then the Hide header and the internal streams, each in input order", () => {
     expect(labels(build().options)).toEqual([
       "default",

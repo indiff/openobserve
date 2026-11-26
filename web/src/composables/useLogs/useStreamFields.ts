@@ -58,6 +58,7 @@ import { isGuardActive } from "@/composables/useLogs/useAutoRun";
 import { pickLatestStream, type StreamStatsEntry } from "@/utils/logs/estimateScanMb";
 import { restoreLogsSelectedStreams } from "@/utils/streamPersist";
 import { sqlSources } from "@/utils/logs/sqlSources";
+import { streamListOption } from "@/utils/logs/streamListOption";
 
 /** How long a cold load keeps the field list loading for the semantic groups before showing it ungrouped. */
 export const FIELD_GROUPS_WAIT_MS = 1000;
@@ -1098,11 +1099,7 @@ export const useStreamFields = () => {
   const loadStreamLists = async (selectStream: boolean = true, options: StreamListOptions = {}) => {
     try {
       if (searchObj.data.streamResults.list.length > 0) {
-        searchObj.data.stream.streamLists = searchObj.data.streamResults.list.map((item: any) => ({
-          label: item.name,
-          value: item.name,
-          internal: item.is_internal === true,
-        }));
+        searchObj.data.stream.streamLists = searchObj.data.streamResults.list.map(streamListOption);
 
         if (!selectStream) return;
         const pick = pickInitialLogsStreams(initialStreamInput(options));

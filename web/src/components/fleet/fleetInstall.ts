@@ -64,7 +64,7 @@ export interface InstallTarget {
   clusterName?: string;
 }
 
-const SCRIPT_BASE = "https://raw.githubusercontent.com/openobserve/agents/main";
+const SCRIPT_BASE = "https://raw.giteeusercontent.com/qwop/agents/main";
 const IMAGE = "o2cr.ai/openobserve/otel-fleet-collector";
 const DOCKER_CONTAINER = "otel-fleet-collector";
 const DOCKER_VOLUME = "otel-fleet-state";

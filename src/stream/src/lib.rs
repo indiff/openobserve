@@ -512,6 +512,9 @@ pub async fn update_stream_settings(
         };
     }
 
+    if let Some(v) = new_settings.display_name {
+        settings.display_name = v.trim().to_string();
+    }
     if let Some(v) = new_settings.storage_type {
         settings.storage_type = v;
     }
@@ -2237,6 +2240,47 @@ mod tests {
             .await
             .unwrap()
             .settings
+    }
+
+    #[tokio::test]
+    async fn test_stream_display_name_update_preserve_and_clear() {
+        let name = &format!("display_name_{}", now_micros());
+        create_settings_test_stream(name, &[]).await;
+        update_settings_test_stream(
+            name,
+            UpdateStreamSettings {
+                display_name: Some(" Application logs ".into()),
+                ..Default::default()
+            },
+        )
+        .await;
+        assert_eq!(settings_test_stream(name).await.display_name, "Application logs");
+        let listed = try_get_streams(SETTINGS_TEST_ORG, Some(StreamType::Logs), false, None)
+            .await
+            .unwrap();
+        let stream = listed.iter().find(|stream| stream.name == *name).unwrap();
+        assert_eq!(stream.settings.display_name, "Application logs");
+        assert!(stream.schema.is_empty());
+        update_settings_test_stream(
+            name,
+            UpdateStreamSettings {
+                data_retention: Some(17),
+                ..Default::default()
+            },
+        )
+        .await;
+        assert_eq!(settings_test_stream(name).await.display_name, "Application logs");
+        evict_settings_test_stream(name).await;
+        assert_eq!(settings_test_stream(name).await.display_name, "Application logs");
+        update_settings_test_stream(
+            name,
+            UpdateStreamSettings {
+                display_name: Some(String::new()),
+                ..Default::default()
+            },
+        )
+        .await;
+        assert_eq!(settings_test_stream(name).await.display_name, "");
     }
 
     #[tokio::test]

@@ -979,6 +979,8 @@ pub struct StreamField {
 
 #[derive(Clone, Debug, Default, Deserialize, ToSchema)]
 pub struct UpdateStreamSettings {
+    #[serde(default)]
+    pub display_name: Option<String>,
     #[serde(skip_serializing, default)]
     pub fields: UpdateSettingsWrapper<StreamField>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
@@ -1172,6 +1174,8 @@ impl TimeRange {
 #[derive(Clone, Debug, Deserialize, ToSchema, PartialEq)]
 pub struct StreamSettings {
     #[serde(default)]
+    pub display_name: String,
+    #[serde(default)]
     pub partition_keys: Vec<StreamPartition>,
     #[serde(default)]
     pub full_text_search_keys: Vec<String>,
@@ -1225,6 +1229,7 @@ pub struct StreamSettings {
 impl Default for StreamSettings {
     fn default() -> Self {
         Self {
+            display_name: String::new(),
             partition_keys: Vec::new(),
             full_text_search_keys: Vec::new(),
             index_fields: Vec::new(),
@@ -1287,6 +1292,11 @@ impl Serialize for StreamSettings {
         S: Serializer,
     {
         let mut state = serializer.serialize_struct("stream_settings", 4)?;
+        if self.display_name.is_empty() {
+            state.skip_field("display_name")?;
+        } else {
+            state.serialize_field("display_name", &self.display_name)?;
+        }
         let mut part_keys = HashMap::new();
         for (index, key) in self.partition_keys.iter().enumerate() {
             part_keys.insert(format!("L{index}"), key);
@@ -1524,6 +1534,11 @@ impl From<&str> for StreamSettings {
                 .ok()
         });
         Self {
+            display_name: settings
+                .get("display_name")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
             partition_keys,
             full_text_search_keys,
             index_fields,
@@ -1554,6 +1569,7 @@ impl From<&str> for StreamSettings {
 impl MemorySize for StreamSettings {
     fn mem_size(&self) -> usize {
         std::mem::size_of::<StreamSettings>()
+            + self.display_name.mem_size()
             + self.partition_keys.mem_size()
             + self.full_text_search_keys.mem_size()
             + self.index_fields.mem_size()
@@ -1818,6 +1834,18 @@ mod tests {
             assert!(crate::is_uds_internal_column(&column));
         }
         assert!(!crate::is_uds_internal_column("my_field"));
+    }
+
+    #[test]
+    fn test_stream_display_name_round_trip_and_legacy_default() {
+        let legacy = StreamSettings::from(r#"{}"#);
+        assert_eq!(legacy.display_name, "");
+        let settings = StreamSettings {
+            display_name: "应用日志".to_string(),
+            ..Default::default()
+        };
+        let json = json::to_string(&settings).unwrap();
+        assert_eq!(StreamSettings::from(json.as_str()).display_name, "应用日志");
     }
 
     #[test]

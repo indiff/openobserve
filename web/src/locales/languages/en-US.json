@@ -5259,6 +5259,8 @@
     "search": "Search Template"
   },
   "logStream": {
+    "displayName": "Display alias",
+    "displayNameHelp": "Leave empty to display the original stream name. This does not change the stream name used in queries.",
     "timelineIcon": "Timeline Icon",
     "utc": "UTC",
     "recordsIcon": "Records Icon",

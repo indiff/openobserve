@@ -49,6 +49,7 @@ import type { RunReason } from "@/composables/useLogs/useAutoRun";
 import { resetTransient } from "@/utils/logs/transientSearchKeys";
 import { refreshFreeTextSchemas } from "@/composables/useLogs/freeTextSearch";
 import { decodeFtScan } from "@/utils/logs/freeTextScan";
+import { streamListOption } from "@/utils/logs/streamListOption";
 import { featureState } from "@/utils/featureGate";
 import {
   decodeColumns,
@@ -597,15 +598,7 @@ const useLogs = (t: TranslateFn) => {
       if (store.state.selectedOrganization.identifier !== requestOrg) return;
       searchObj.data.streamResults["list"] = streams.list;
 
-      searchObj.data.stream.streamLists = [];
-      streams.list.map((item: any) => {
-        const itemObj = {
-          label: item.name,
-          value: item.name,
-          internal: item.is_internal === true,
-        };
-        searchObj.data.stream.streamLists.push(itemObj);
-      });
+      searchObj.data.stream.streamLists = streams.list.map(streamListOption);
     } else {
       loadLogsData("activation");
     }
