@@ -44,33 +44,13 @@ keep going.
 Each one has a definition, a test you can apply mechanically, and examples. The cold reviewer (§5)
 applies the same three tests, so there is one vocabulary for writer and reviewer.
 
-### 2.1 Hacks
+### 2.1 机器人行为约束
+1. ❌ Agent 不能自动修改仓库配置：分支保护、secret、action workflow、环境变量。
+2. ❌ Agent 不能读取、导出仓库 secret、私有凭证。
+3. ❌ Agent 不能执行高危 shell 命令：rm -rf、chmod 777、挂载宿主机目录等。
+4. ❌ 禁止在代码、注释、文档中写入内网 IP、账号密码、数据库连接串、密钥。
 
-**Definition.** Code that makes a symptom disappear while the underlying statement about the system
-stays false.
-
-**Test.** Delete the new code: is the thing it "fixed" still wrong, for the same reason? Then it was
-a hack. Second test: does the fix only work because of a value, name, order or timing that is not
-part of any contract?
-
-**Examples, all banned:**
-
-- A branch keyed on one input, test name, org id or environment so that one case passes.
-- Turning an error into success where the caller needed to know: `.ok()`, `.unwrap_or_default()`,
-  `let _ = …`, `if let Ok(x)` with no `else`, a handler that logs at debug and continues.
-- A sleep, retry or re-ordering that makes a race rarer instead of removing it.
-- Widening a type (`String`, `serde_json::Value`, `i64` for everything) so the compiler stops
-  complaining, instead of modelling the value.
-- `#[allow(clippy::…)]`, `#[ignore]`, a weakened assertion, or a raised lint threshold to get green.
-- A flag that defaults the new behaviour off so the bug stops reproducing.
-- A "temporary" anything with no issue number and no removal condition.
-
-**Not a hack:** a fallback the spec names and that is visible when it fires (a `warn!` with context,
-a metric, an error field in the response). A default is a decision; a silent default is a hack.
-
-**When the real cause is out of scope:** stop and report it. Do not patch the symptom to finish the
-task.
-
+   
 ### 2.2 Over-engineering
 
 **Definition.** Structure that exists for a future the spec does not contain.
@@ -169,49 +149,6 @@ job, such as "decide who to page", "render the SMS text" or "send through the pr
   complete" is not done.
 - **Size each diff by rule, not by subsystem.** One rule (or a few small ones), its test and its
   code, small enough for a person to review in one sitting.
-
-## 5. The working loop
-
-In repos that have the `o2-loop` skill (openobserve, o2-enterprise), the skill *is* steps 3–6
-below: it owns the round cap and the findings ledger. Elsewhere, run the steps by hand.
-
-1. **The main chat is the monitor.** It holds the spec, the rule list and the progress. It
-   delegates the work and does not do bulk reading or writing itself.
-2. **Spec gate** (Change and Feature only). Before any code, write the numbered rules, the
-   components with their one-line jobs and guarantee tags, and the open questions. Ask the human
-   about every open question.
-3. **Tests.** A subagent writes the tests for the next rule-sized slice. Before it reports, it
-   checks them once against this list: does each test map to a rule, did it fail first, is any
-   test a duplicate, is anything invented.
-4. **Cold review.** A fresh reviewer (one that did not write the code) gets only the spec path
-   and the diff, not the conversation, and applies the three tests in §2. Each finding must give
-   `path:line` and a concrete failure: "input X gives wrong output Y". A finding with no concrete
-   failure is dropped.
-5. **Confirm each finding before acting on it.** Read the cited lines, or run a test that shows
-   the failure. Reviewers make things up too. Fix only the findings you confirmed, and record the
-   ones you rejected along with the reason.
-6. **Repeat step 4** until a round produces no confirmed finding. If the round cap is reached and
-   real problems remain, the spec is the problem: go back to the human.
-7. **Run the repo's gates (fmt, clippy, tests) before every review round** so reviewers do not
-   spend tokens on what a tool would catch.
-
-**Review depth follows risk.** Pure logic with good table tests needs one cold round. Full depth
-for anything that touches: unauthenticated endpoints, authorization, signature verification,
-secrets, money, data deletion, migrations, anything that pages a human.
-
-**Stop and ask the human when:**
-
-- the spec does not decide something (§1);
-- the only green path you can find is a hack (§2.1);
-- the fix needs to touch files or layers outside the stated scope;
-- an abstraction needs a second user and the spec has none (§2.2);
-- a test can only pass by changing its expectation;
-- the gates fail for a reason that predates your change.
-
-**Keeping the token cost down.** Give a subagent file paths and a narrow question, not pasted
-contents, and ask for conclusions with citations, capped in length. Use read-only search agents
-for searching. Continue an existing agent instead of starting one that has to re-read everything.
-Do not re-read files you already read, and do not re-derive facts you already settled.
 
 ## 6. UI
 
