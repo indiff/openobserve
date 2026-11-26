@@ -2202,7 +2202,7 @@ pub struct Common {
     #[env_config(
         name = "ZO_SYNC_LOG_DIR",
         default = "",
-        help = "Comma-separated directories whose regular files are tailed from the beginning, one record per line, into default-org logs streams named after the directory. Read positions are persisted under ZO_DATA_DIR. Configure this on only one ingester when nodes share the same source files."
+        help = "Comma-separated directories whose regular files are tailed from the beginning, one record per line, into default-org logs streams named after each full file name. Stream names follow the usual normalization rules; files with the same resulting name share a stream. Read positions are persisted under ZO_DATA_DIR, so existing records remain in their previous streams. Configure this on only one ingester when nodes share the same source files."
     )]
     pub sync_log_dir: String,
     #[env_config(name = "ZO_INGESTION_URL", default = "")]

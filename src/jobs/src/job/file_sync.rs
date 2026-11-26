@@ -14,6 +14,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::{
+	borrow::Cow,
     collections::HashMap,
     path::{Path, PathBuf},
     time::Duration,
@@ -114,10 +115,10 @@ async fn sync_directory(
     checkpoint_path: &Path,
     checkpoints: &mut Checkpoints,
 ) -> anyhow::Result<()> {
-    let stream_name = directory
-        .file_name()
-        .ok_or_else(|| anyhow::anyhow!("directory has no stream name"))?
-        .to_string_lossy();
+    //let stream_name = directory
+    //    .file_name()
+    //    .ok_or_else(|| anyhow::anyhow!("directory has no stream name"))?
+    //    .to_string_lossy();
     let mut entries = match fs::read_dir(directory).await {
         Ok(entries) => entries,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
@@ -128,7 +129,8 @@ async fn sync_directory(
         if !entry.file_type().await?.is_file() {
             continue;
         }
-        if let Err(e) = sync_file(&entry.path(), &stream_name, checkpoint_path, checkpoints).await {
+        //if let Err(e) = sync_file(&entry.path(), &stream_name, checkpoint_path, checkpoints).await {
+		if let Err(e) = sync_file(&entry.path(), checkpoint_path, checkpoints).await {	
             log::error!(
                 "[FILE_SYNC] failed to sync file {}: {e}",
                 entry.path().display()
@@ -140,10 +142,11 @@ async fn sync_directory(
 
 async fn sync_file(
     path: &Path,
-    stream_name: &str,
+    // stream_name: &str,
     checkpoint_path: &Path,
     checkpoints: &mut Checkpoints,
 ) -> anyhow::Result<()> {
+	let stream_name = stream_name_for_file(path)?;
     let file = File::open(path).await?;
     let metadata = file.metadata().await?;
     let (device, inode) = file_identity(&metadata);
@@ -177,7 +180,8 @@ async fn sync_file(
         batch_bytes += bytes_read;
         batch.push(record);
         if batch.len() >= MAX_BATCH_RECORDS || batch_bytes >= MAX_BATCH_BYTES {
-            ingest_batch(stream_name, &batch).await?;
+            // ingest_batch(stream_name, &batch).await?;
+			ingest_batch(&stream_name, &batch).await?;
             checkpoints.files.get_mut(&key).unwrap().position = batch_end;
             save_checkpoints(checkpoint_path, checkpoints).await?;
             batch.clear();
@@ -186,12 +190,22 @@ async fn sync_file(
     }
 
     if !batch.is_empty() {
-        ingest_batch(stream_name, &batch).await?;
+        // ingest_batch(stream_name, &batch).await?;
+		ingest_batch(&stream_name, &batch).await?;
         checkpoints.files.get_mut(&key).unwrap().position = batch_end;
         save_checkpoints(checkpoint_path, checkpoints).await?;
     }
     Ok(())
 }
+
+
+fn stream_name_for_file(path: &Path) -> anyhow::Result<Cow<'_, str>> {
+    Ok(path
+        .file_name()
+        .ok_or_else(|| anyhow::anyhow!("file path has no file name"))?
+        .to_string_lossy())
+}
+
 
 async fn ingest_batch(stream_name: &str, records: &[serde_json::Value]) -> anyhow::Result<()> {
     let response = openobserve_core::logs::ingest::ingest(
@@ -242,8 +256,24 @@ fn file_identity(_metadata: &std::fs::Metadata) -> (Option<u64>, Option<u64>) {
 
 #[cfg(test)]
 mod tests {
-    use super::{FileCheckpoint, record_from_line};
+    // use super::{FileCheckpoint, record_from_line};
+		
+    use std::path::Path;
+    use super::{FileCheckpoint, record_from_line, stream_name_for_file};
 
+    #[test]
+    fn file_names_select_distinct_streams() {
+        assert_eq!(
+            stream_name_for_file(Path::new("/var/log/remote/10.110.13.4.log")).unwrap(),
+            "10.110.13.4.log"
+        );
+        assert_eq!(
+            stream_name_for_file(Path::new("/var/log/remote/127.0.0.1.log")).unwrap(),
+            "127.0.0.1.log"
+        );
+        assert!(stream_name_for_file(Path::new("/")).is_err());
+    }
+	
     #[test]
     fn accepts_complete_utf8_and_replaces_invalid_bytes() {
         assert_eq!(
