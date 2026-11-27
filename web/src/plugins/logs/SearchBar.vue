@@ -4683,7 +4683,7 @@ export default defineComponent({
     const showDownloadMenu = ref(false);
     const downloadCustomInitialNumber = ref(1);
     const downloadCustomRange = ref(100);
-    const downloadCustomRangeOptions = ref([100, 500, 1000, 5000, 10000]);
+    const downloadCustomRangeOptions = ref([100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000]);
     const downloadCustomFileName = ref("");
     const downloadCustomFileType = ref("csv");
     // Hover-triggered submenu state for "Download results → CSV/JSON" in the more-options dropdown.
