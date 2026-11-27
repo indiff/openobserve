@@ -470,7 +470,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
                       <div
                         class="rounded-default border-card-glass-border divide-card-glass-border divide-y border"
                       >
-                        <div v-if="modelValue.stream_type === 'logs'" class="flex flex-col gap-1 p-3">
+                        <div
+                          v-if="modelValue.stream_type === 'logs'"
+                          class="flex flex-col gap-1 p-3"
+                        >
                           <OInput
                             data-test="stream-details-display-name-input"
                             v-model="displayName"

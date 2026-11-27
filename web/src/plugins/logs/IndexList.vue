@@ -512,11 +512,13 @@ export default defineComponent({
     });
 
     const pickerStreams = computed<PickerStream[]>(() =>
-      (streamList.value || []).map((option: { value: string; label: string; internal?: boolean }) => ({
-        name: option.value,
-        display_name: option.label,
-        is_internal: option.internal === true,
-      })),
+      (streamList.value || []).map(
+        (option: { value: string; label: string; internal?: boolean }) => ({
+          name: option.value,
+          display_name: option.label,
+          is_internal: option.internal === true,
+        }),
+      ),
     );
 
     const streamDisplayName = (name: string) =>
